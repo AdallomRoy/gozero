@@ -45,19 +45,21 @@ func NewDockerSandbox(ctx context.Context, config *DockerConfiguration) (*Sandbo
 	if err != nil {
 		return nil, fmt.Errorf("failed to create docker client: %w", err)
 	}
-	defer dockerClient.Close()
 
 	// Test Docker connection
 	_, err = dockerClient.Ping(ctx, client.PingOptions{NegotiateAPIVersion: true})
 	if err != nil {
+		_ = dockerClient.Close()
 		return nil, fmt.Errorf("failed to connect to docker daemon: %w", err)
 	}
 
 	// Validate required configuration
 	if config.Image == "" {
+		_ = dockerClient.Close()
 		return nil, fmt.Errorf("docker image must be specified")
 	}
 	if config.WorkingDir == "" {
+		_ = dockerClient.Close()
 		return nil, fmt.Errorf("working directory must be specified")
 	}
 	if config.Timeout == 0 {
@@ -262,8 +264,9 @@ func (s *SandboxDocker) Stop() error {
 
 // Clear cleans up Docker resources (containers, images, etc.)
 func (s *SandboxDocker) Clear() error {
-	// For now, we don't need to clean up anything as containers are removed after execution
-	// In the future, we could add cleanup of unused images or containers
+	if s.dockerClient != nil {
+		return s.dockerClient.Close()
+	}
 	return nil
 }
 
